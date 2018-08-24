@@ -19,6 +19,10 @@ func (m *Mount) AuthInput() *api.MountInput {
 	return &api.MountInput{
 		Type:        m.Type,
 		Description: m.Description,
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: m.DefaultLeaseTTL,
+			MaxLeaseTTL:     m.MaxLeaseTTL,
+		},
 	}
 }
 
