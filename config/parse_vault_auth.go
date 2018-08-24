@@ -16,7 +16,7 @@ func (c *Config) processVaultAuths(list *ast.ObjectList, environment *Environmen
 	for _, authAST := range list.Items {
 		x := authAST.Val.(*ast.ObjectType).List
 
-		valid := []string{"config", "role", "type", "path"}
+		valid := []string{"config", "role", "type", "path", "max_lease_ttl", "default_lease_ttl"}
 		if err := checkHCLKeys(x, valid); err != nil {
 			return err
 		}
@@ -34,10 +34,40 @@ func (c *Config) processVaultAuths(list *ast.ObjectList, environment *Environmen
 
 		authType := typeAST.Items[0].Val.(*ast.LiteralType).Token.Value().(string)
 
+		mountMaxLeaseTTL := ""
+		maxTTLAST := x.Filter("max_lease_ttl")
+		if len(maxTTLAST.Items) == 1 {
+			v := maxTTLAST.Items[0].Val.(*ast.LiteralType).Token.Value()
+			switch t := v.(type) {
+			default:
+				return fmt.Errorf("unexpected type %T for %s -> %s -> max_lease_ttl", environment.Name, authName, t)
+			case string:
+				mountMaxLeaseTTL = v.(string)
+			}
+		} else if len(maxTTLAST.Items) > 1 {
+			return fmt.Errorf("You can only specify max_lease_ttl once per mount in %s -> %s", environment.Name, authName)
+		}
+
+		mountDefaultLeaseTTL := ""
+		defaultTTLAST := x.Filter("default_lease_ttl")
+		if len(defaultTTLAST.Items) == 1 {
+			v := defaultTTLAST.Items[0].Val.(*ast.LiteralType).Token.Value()
+			switch t := v.(type) {
+			default:
+				return fmt.Errorf("unexpected type %T for %s -> %s -> default_lease_ttl", environment.Name, authName, t)
+			case string:
+				mountDefaultLeaseTTL = v.(string)
+			}
+		} else if len(defaultTTLAST.Items) > 1 {
+			return fmt.Errorf("You can only specify default_lease_ttl once per mount in %s -> %s", environment.Name, authName)
+		}
+
 		auth := &Auth{
-			Name:        authName,
-			Type:        authType,
-			Environment: environment,
+			Name:            authName,
+			Type:            authType,
+			Environment:     environment,
+			DefaultLeaseTTL: mountDefaultLeaseTTL,
+			MaxLeaseTTL:     mountMaxLeaseTTL,
 		}
 
 		configAST := x.Filter("config")
